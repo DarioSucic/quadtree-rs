@@ -124,7 +124,7 @@ fn main() {
 
     println!("Page Size: {}", page_size::get());
 
-    const N: usize = 100;
+    const N: usize = 1000;
 
     let mut values = Vec::with_capacity(N*N);
     for x in 0..N {
@@ -138,7 +138,7 @@ fn main() {
 
     let st = Instant::now();
     // let mut bump = Bump::new();
-    let mut bump = Bump::with_capacity(values.len() * 4 *  size_of::<QTInner<usize, System>>());
+    let mut bump = Bump::with_capacity(values.len() *  size_of::<QTInner<usize, System>>());
     let mut qt = Quadtree::new_in(&bump);
     // let mut qt = Quadtree::new();
     for value in values {
@@ -173,11 +173,11 @@ fn main() {
     
 
     // Slow
-    /*
+    
     {
-        drop(qt);
+        // drop(qt);
     }
-    */
+    
 
     let et = Instant::now();
     println!("Drop     :: {:>8.2?}", et.duration_since(st));
