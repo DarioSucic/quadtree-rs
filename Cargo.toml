@@ -5,3 +5,4 @@ edition = "2018"
 
 [dependencies]
 bumpalo = { version = "3.7.1", features = ["allocator_api"] }
+page_size = "0.4.2"

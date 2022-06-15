@@ -1,6 +1,7 @@
 #![feature(allocator_api)]
 
-use std::alloc::Allocator;
+use std::alloc::{Allocator, System};
+use std::mem::forget;
 use std::{mem::size_of, time::Instant};
 
 use bumpalo::Bump;
@@ -45,6 +46,19 @@ where
         let pos = (0.5, 0.5);
         self.root._insert(pos, value, &self.storage);
     }
+
+    fn traverse(&self, mut f: impl FnMut(usize, &T)) {
+        self.root._traverse(0, &mut f);
+    }
+}
+
+impl <T: Clone> Quadtree<'static, T, System> {
+    fn new() -> Self {
+        Self {
+            root: QTInner::Empty,
+            storage: &System
+        }
+    }
 }
 
 impl<'a, T: Clone, A> QTInner<'a, T, A>
@@ -86,6 +100,14 @@ where
             }
         }
     }
+
+    fn _traverse(&self, depth: usize, f: &mut impl FnMut(usize, &T)) {
+        match self {
+            QTInner::Empty => (),
+            QTInner::Value(v) => f(depth, v),
+            QTInner::Subdivision(s) => s.iter().for_each(|qti| qti._traverse(depth+1, f)),
+        }
+    }
 }
 
 fn main() {
@@ -100,27 +122,66 @@ fn main() {
 
     // return;
 
+    println!("Page Size: {}", page_size::get());
+
     const N: usize = 100;
 
-    let values = (0..N)
-        .flat_map(|x| {
-            (0..N).map(move |y| SpatialData {
+    let mut values = Vec::with_capacity(N*N);
+    for x in 0..N {
+        for y in 0..N {
+            values.push(SpatialData {
                 position: (x as f32 / 100.0, y as f32 / 100.0),
                 data: x * y,
-            })
-        })
-        .collect::<Vec<SpatialData<usize>>>();
+            });
+        }
+    }
 
     let st = Instant::now();
-
-    let bump = Bump::new();
+    // let mut bump = Bump::new();
+    let mut bump = Bump::with_capacity(values.len() * 4 *  size_of::<QTInner<usize, System>>());
     let mut qt = Quadtree::new_in(&bump);
-
+    // let mut qt = Quadtree::new();
     for value in values {
         qt.insert(value);
     }
+    let et = Instant::now();
+    println!("Insert   :: {:>8.2?}", et.duration_since(st));
+
+    let st = Instant::now();
+    let mut sum = 0;
+    qt.traverse(|depth, value| {
+        sum += value;
+    });
+    let et = Instant::now();
+    println!("Traverse :: {:>8.2?}", et.duration_since(st));
+
+    let st = Instant::now();
+    
+    // Slow
+    // drop(qt);
+    // drop(bump);
+
+    // Fast
+    
+    {
+        forget(qt);
+        // for chunk in bump.iter_allocated_chunks() {
+        //     println!("{:?}", chunk.len());
+        // }
+        drop(bump);
+    }
+    
+
+    // Slow
+    /*
+    {
+        drop(qt);
+    }
+    */
 
     let et = Instant::now();
+    println!("Drop     :: {:>8.2?}", et.duration_since(st));
 
-    println!("Time: {:?}", et.duration_since(st));
+    println!("Sum: {sum}");
+
 }
